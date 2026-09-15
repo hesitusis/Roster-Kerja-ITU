@@ -231,7 +231,7 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
           <div className="bg-white p-3.5 rounded-xl border border-emerald-200 shadow-2xs">
             <div className="text-[11px] font-semibold text-emerald-800">Day Shift (D)</div>
             <div className="text-2xl font-black text-emerald-900 mt-0.5">{recap.dCount}</div>
-            <div className="text-[10px] text-emerald-700">Hari Terjadwal Siang</div>
+            <div className="text-[10px] text-emerald-700">Hari Terjadwal Pagi</div>
           </div>
 
           <div className="bg-white p-3.5 rounded-xl border border-blue-200 shadow-2xs">
