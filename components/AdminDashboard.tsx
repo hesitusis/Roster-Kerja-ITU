@@ -175,13 +175,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const monthlyKimperAudit = getMonthlyKimperAudit(employees, roster, year, monthIndex, 'Service');
   const totalKimperShortageDays = monthlyKimperAudit.filter((a) => a.hasShortage).length;
 
-  // Filter employees according to admin role scoping:
-  // Only Super Admin can view all departments; department admins only view their department(s)
-  const accessibleEmployees = userRoleInfo.isSuperAdmin
-    ? employees
-    : employees.filter((emp) => userRoleInfo.allowedDepts.includes(emp.department));
-
-  const staffEmployees = accessibleEmployees;
+  // Allow all admins to view and check roster across all departments.
+  // Edit permission is enforced per employee/department via canEditEmployeeRoster.
+  const staffEmployees = employees;
   const filteredEmployees = staffEmployees.filter((emp) => {
     const matchesDept = selectedDept === 'ALL' || emp.department === selectedDept;
     const matchesKimper =
@@ -323,84 +319,62 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               <span>Departemen:</span>
             </span>
 
-            {/* If Super Admin: Show 'Semua' and all department pills */}
-            {userRoleInfo.isSuperAdmin ? (
-              <>
+            {/* Show 'Semua' and all department pills for all admins */}
+            <button
+              type="button"
+              id="filter-dept-ALL"
+              onClick={() => setSelectedDept('ALL')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                selectedDept === 'ALL'
+                  ? 'bg-slate-900 text-white shadow-2xs'
+                  : 'bg-slate-100 text-slate-700 hover:bg-slate-200 border border-transparent'
+              }`}
+            >
+              Semua ({staffEmployees.length})
+            </button>
+
+            {DEPARTMENTS.map((dept) => {
+              const isSelected = selectedDept === dept.code;
+              const count = staffEmployees.filter((e) => e.department === dept.code).length;
+              const canEditThisDept = userRoleInfo.isSuperAdmin || userRoleInfo.allowedDepts.includes(dept.code);
+              return (
                 <button
+                  key={dept.code}
+                  id={`filter-dept-${dept.code}`}
                   type="button"
-                  id="filter-dept-ALL"
-                  onClick={() => setSelectedDept('ALL')}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                    selectedDept === 'ALL'
-                      ? 'bg-slate-900 text-white shadow-2xs'
-                      : 'bg-slate-100 text-slate-700 hover:bg-slate-200 border border-transparent'
+                  onClick={() => setSelectedDept(dept.code)}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-all cursor-pointer flex items-center gap-1.5 ${
+                    isSelected
+                      ? 'bg-indigo-600 text-white border-indigo-600 shadow-2xs'
+                      : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200'
                   }`}
                 >
-                  Semua ({staffEmployees.length})
+                  <span>{dept.code}</span>
+                  <span
+                    className={`px-1.5 py-0.2 rounded-md text-[10px] font-semibold ${
+                      isSelected ? 'bg-indigo-700 text-white' : 'bg-slate-100 text-slate-600'
+                    }`}
+                  >
+                    {count}
+                  </span>
+                  {!userRoleInfo.isSuperAdmin && (
+                    <span
+                      className={`text-[9px] px-1 py-0.2 rounded ${
+                        isSelected
+                          ? canEditThisDept
+                            ? 'bg-emerald-500/30 text-emerald-100 font-medium'
+                            : 'bg-slate-700 text-slate-200'
+                          : canEditThisDept
+                          ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 font-medium'
+                          : 'bg-slate-100 text-slate-500'
+                      }`}
+                    >
+                      {canEditThisDept ? 'Wewenang Edit' : 'Lihat'}
+                    </span>
+                  )}
                 </button>
-
-                {DEPARTMENTS.map((dept) => {
-                  const isSelected = selectedDept === dept.code;
-                  const count = staffEmployees.filter((e) => e.department === dept.code).length;
-                  return (
-                    <button
-                      key={dept.code}
-                      id={`filter-dept-${dept.code}`}
-                      type="button"
-                      onClick={() => setSelectedDept(dept.code)}
-                      className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
-                        isSelected
-                          ? 'bg-indigo-600 text-white border-indigo-600 shadow-2xs'
-                          : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200'
-                      }`}
-                    >
-                      <span>{dept.code}</span>
-                      <span
-                        className={`ml-1.5 px-1.5 py-0.2 rounded-md text-[10px] font-semibold ${
-                          isSelected ? 'bg-indigo-700 text-white' : 'bg-slate-100 text-slate-600'
-                        }`}
-                      >
-                        {count}
-                      </span>
-                    </button>
-                  );
-                })}
-              </>
-            ) : (
-              /* If Department Admin: Strictly show only their assigned department(s) */
-              <>
-                {userRoleInfo.allowedDepts.map((deptCode) => {
-                  const isSelected = selectedDept === deptCode;
-                  const count = staffEmployees.filter((e) => e.department === deptCode).length;
-                  return (
-                    <button
-                      key={deptCode}
-                      id={`filter-dept-${deptCode}`}
-                      type="button"
-                      onClick={() => setSelectedDept(deptCode)}
-                      className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-all cursor-pointer flex items-center gap-1.5 ${
-                        isSelected
-                          ? 'bg-indigo-600 text-white border-indigo-600 shadow-2xs'
-                          : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200'
-                      }`}
-                    >
-                      <CheckCircle2 className={`w-3.5 h-3.5 ${isSelected ? 'text-white' : 'text-emerald-500'}`} />
-                      <span>{deptCode}</span>
-                      <span
-                        className={`px-1.5 py-0.2 rounded-md text-[10px] font-semibold ${
-                          isSelected ? 'bg-indigo-700 text-white' : 'bg-slate-100 text-slate-600'
-                        }`}
-                      >
-                        {count}
-                      </span>
-                      <span className={`text-[10px] font-normal ${isSelected ? 'text-indigo-100' : 'text-slate-400'}`}>
-                        (Wewenang Anda)
-                      </span>
-                    </button>
-                  );
-                })}
-              </>
-            )}
+              );
+            })}
           </div>
 
           {/* Search Box with clear button */}
@@ -531,6 +505,25 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         </div>
       )}
 
+
+      {/* Informative banner if dept admin is checking another department */}
+      {!userRoleInfo.isSuperAdmin && selectedDept !== 'ALL' && !userRoleInfo.allowedDepts.includes(selectedDept) && (
+        <div className="bg-amber-50/90 border border-amber-200 rounded-2xl px-4 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-amber-900 animate-in fade-in shadow-2xs">
+          <div className="flex items-center gap-2.5">
+            <Eye className="w-4 h-4 text-amber-600 shrink-0" />
+            <span>
+              <strong>Mode Lihat Roster:</strong> Anda sedang memeriksa roster Departemen <strong>{selectedDept}</strong>. Wewenang perubahan shift Anda berada pada Departemen <strong>{userRoleInfo.allowedDepts.join(', ')}</strong>.
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setSelectedDept(userRoleInfo.allowedDepts[0] || 'ALL')}
+            className="text-xs font-bold text-amber-800 hover:text-amber-950 underline shrink-0 cursor-pointer self-start sm:self-auto"
+          >
+            Beralih ke {userRoleInfo.allowedDepts.join(', ')} →
+          </button>
+        </div>
+      )}
 
       {/* View Switcher Tabs */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200 pb-3">
