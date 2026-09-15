@@ -1,0 +1,6 @@
+{
+  "name": "Sistem Roster Kerja Karyawan",
+  "description": "Sistem informasi pengaturan dan penjadwalan roster kerja shift (Setting Roster) karyawan dengan integrasi Google Spreadsheet dua arah, audit log perubahan shift, monitoring kualifikasi Kimper, dan ekspor data.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
