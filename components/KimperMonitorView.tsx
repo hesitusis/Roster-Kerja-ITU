@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { Department, Employee, RosterData, ShiftCode } from '@/lib/types';
-import { KIMPER_LIST, KIMPER_MAP, MONTH_NAMES_ID, SHIFTS } from '@/lib/constants';
+import { DEPARTMENTS, KIMPER_LIST, KIMPER_MAP, MONTH_NAMES_ID, SHIFTS } from '@/lib/constants';
 import {
   getDaysInMonth,
   getDailyKimperReport,
@@ -46,7 +46,7 @@ export const KimperMonitorView: React.FC<KimperMonitorViewProps> = ({
   roster,
   onUpdateShift,
   onOpenIndividualModal,
-  initialDepartment = 'Service',
+  initialDepartment = 'ALL',
 }) => {
   const [selectedDept, setSelectedDept] = useState<Department | 'ALL'>(initialDepartment);
   const days = getDaysInMonth(year, monthIndex);
@@ -119,25 +119,36 @@ export const KimperMonitorView: React.FC<KimperMonitorViewProps> = ({
                 )}
               </div>
               <p className="text-xs text-slate-500 mt-1">
-                Memastikan ketersediaan teknisi pemegang izin <strong>LV, OHC, RIGGER, dan Forklift</strong> pada setiap shift (Shift 1 & Shift 2) agar operasional workshop tidak terhenti.
+                Memastikan ketersediaan teknisi pemegang izin <strong>LV, FORKLIFT, WAH, OHC, dan RIGGER</strong> pada setiap shift (Day Shift & Night Shift) agar operasional tidak terhenti.
               </p>
             </div>
           </div>
 
           {/* Department Filter Toggle */}
-          <div className="flex items-center gap-1.5 bg-slate-100 p-1.5 rounded-xl border border-slate-200 self-start lg:self-auto">
-            {(['Service', 'Warehouse', 'ALL'] as const).map((dept) => (
+          <div className="flex items-center gap-1.5 bg-slate-100 p-1.5 rounded-xl border border-slate-200 self-start lg:self-auto flex-wrap">
+            <button
+              type="button"
+              onClick={() => setSelectedDept('ALL')}
+              className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+                selectedDept === 'ALL'
+                  ? 'bg-white text-indigo-700 shadow-xs border border-slate-200'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              Semua Dept
+            </button>
+            {DEPARTMENTS.map((dept) => (
               <button
-                key={dept}
+                key={dept.code}
                 type="button"
-                onClick={() => setSelectedDept(dept)}
+                onClick={() => setSelectedDept(dept.code)}
                 className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer ${
-                  selectedDept === dept
+                  selectedDept === dept.code
                     ? 'bg-white text-indigo-700 shadow-xs border border-slate-200'
                     : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
-                {dept === 'ALL' ? 'Semua Dept' : `Dept. ${dept}`}
+                {dept.code}
               </button>
             ))}
           </div>
@@ -266,9 +277,9 @@ export const KimperMonitorView: React.FC<KimperMonitorViewProps> = ({
         </div>
       )}
 
-      {/* 4 CORE KIMPER DETAILED COVERAGE CARDS FOR SELECTED DATE */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {KIMPER_LIST.slice(0, 4).map((kDef) => {
+      {/* 5 CORE KIMPER DETAILED COVERAGE CARDS FOR SELECTED DATE (LV, FORKLIFT, WAH, OHC, RIGGER) */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+        {KIMPER_LIST.filter((k) => (k.minRecommendedPerShift ?? 0) > 0 || ['LV', 'FORKLIFT', 'WAH', 'OHC', 'RIGGER'].includes(k.code)).map((kDef) => {
           const status = dailyReport.coverages[kDef.code] as KimperCoverageStatus | undefined;
           if (!status) return null;
 
@@ -471,7 +482,7 @@ export const KimperMonitorView: React.FC<KimperMonitorViewProps> = ({
             </thead>
 
             <tbody className="divide-y divide-slate-100">
-              {KIMPER_LIST.slice(0, 4).map((kDef) => {
+              {KIMPER_LIST.filter((k) => (k.minRecommendedPerShift ?? 0) > 0 || ['LV', 'FORKLIFT', 'WAH', 'OHC', 'RIGGER'].includes(k.code)).map((kDef) => {
                 return (
                   <React.Fragment key={kDef.code}>
                     {/* Shift 1 Row */}

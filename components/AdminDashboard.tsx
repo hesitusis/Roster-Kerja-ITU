@@ -419,7 +419,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           >
             Semua Izin
           </button>
-          {KIMPER_LIST.slice(0, 4).map((k) => {
+          {KIMPER_LIST.filter((k) => (k.minRecommendedPerShift ?? 0) > 0 || ['LV', 'FORKLIFT', 'WAH', 'OHC', 'RIGGER'].includes(k.code)).map((k) => {
             const isSelected = selectedKimperFilter === k.code;
             return (
               <button
