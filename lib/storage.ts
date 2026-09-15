@@ -13,7 +13,7 @@ export const STORAGE_KEYS = {
   AUTO_SYNC: 'roster_gas_auto_sync_v1',
 };
 
-// Purge legacy dummy data from v1/v2/v3 and clear auto-generated dummy months from v4
+// Purge legacy dummy data from v1/v2/v3 only
 if (typeof window !== 'undefined') {
   try {
     ['v1', 'v2', 'v3'].forEach((ver) => {
@@ -25,13 +25,6 @@ if (typeof window !== 'undefined') {
           localStorage.removeItem(key);
         }
       });
-    });
-
-    // Hapus data cache bulan lain selain September 2026 (2026_8) yang sempat terisi dummy generator
-    Object.keys(localStorage).forEach((key) => {
-      if (key.startsWith('roster_app_roster_v4_') && !key.endsWith('_2026_8')) {
-        localStorage.removeItem(key);
-      }
     });
   } catch {
     // Ignore error
@@ -83,7 +76,24 @@ export function getStoredRoster(year: number, monthIndex: number): RosterData {
   try {
     const raw = localStorage.getItem(`${STORAGE_KEYS.ROSTER}_${year}_${monthIndex}`);
     if (raw) {
-      return JSON.parse(raw);
+      const parsed = JSON.parse(raw);
+      // Check if parsed has at least some shifts
+      const hasAnyShifts = Object.values(parsed).some(
+        (empShifts: any) => empShifts && typeof empShifts === 'object' && Object.keys(empShifts).length > 0
+      );
+      if (hasAnyShifts) {
+        return parsed;
+      }
+      // If parsed is completely empty but generateInitialRoster has data for this month (e.g. October 2026), prefer initial
+      const initial = generateInitialRoster(year, monthIndex);
+      const initialHasShifts = Object.values(initial).some(
+        (empShifts: any) => empShifts && typeof empShifts === 'object' && Object.keys(empShifts).length > 0
+      );
+      if (initialHasShifts) {
+        saveStoredRoster(year, monthIndex, initial);
+        return initial;
+      }
+      return parsed;
     }
     // If not stored for this specific month, create and store initial
     const initial = generateInitialRoster(year, monthIndex);
@@ -101,6 +111,39 @@ export function saveStoredRoster(year: number, monthIndex: number, data: RosterD
     localStorage.setItem(`${STORAGE_KEYS.ROSTER}_${year}_${monthIndex}`, JSON.stringify(data));
   } catch (e) {
     console.error('Error saving roster', e);
+  }
+}
+
+/**
+ * Saves a full multi-month roster (e.g. from Google Sheets sync)
+ * by splitting entries into their respective month keys (e.g. 2026_8, 2026_9, 2026_10)
+ */
+export function saveStoredRosterMultiMonth(fullRoster: RosterData) {
+  if (typeof window === 'undefined' || !fullRoster) return;
+  try {
+    const monthBuckets: Record<string, RosterData> = {};
+    for (const [empId, shifts] of Object.entries(fullRoster)) {
+      if (!shifts || typeof shifts !== 'object') continue;
+      for (const [dateStr, entry] of Object.entries(shifts)) {
+        const parts = dateStr.split('-');
+        if (parts.length === 3) {
+          const y = parseInt(parts[0], 10);
+          const m = parseInt(parts[1], 10) - 1; // 0-indexed
+          if (!isNaN(y) && !isNaN(m)) {
+            const key = `${y}_${m}`;
+            if (!monthBuckets[key]) monthBuckets[key] = {};
+            if (!monthBuckets[key][empId]) monthBuckets[key][empId] = {};
+            monthBuckets[key][empId][dateStr] = entry;
+          }
+        }
+      }
+    }
+    for (const [key, monthRoster] of Object.entries(monthBuckets)) {
+      const [y, m] = key.split('_').map(Number);
+      saveStoredRoster(y, m, monthRoster);
+    }
+  } catch (e) {
+    console.error('Error saving multi-month roster', e);
   }
 }
 

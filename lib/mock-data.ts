@@ -1,4 +1,5 @@
 import { Employee, LeaveRequest, RosterData, ShiftCode } from './types';
+import { BUNDLED_MONTHLY_ROSTERS } from './bundled-rosters';
 
 // 47 Data Karyawan Resmi disinkronkan langsung dari Google Spreadsheet ROSTER KERJA
 export const INITIAL_EMPLOYEES: Employee[] = [
@@ -5124,9 +5125,10 @@ export const INITIAL_LEAVE_REQUESTS: LeaveRequest[] = [
 ];
 
 export function generateInitialRoster(year: number, monthIndex: number): RosterData {
-  if (year === 2026 && monthIndex === 8) {
-    const r = JSON.parse(JSON.stringify(INITIAL_SEPTEMBER_2026_ROSTER));
-    if (r["emp-1"] && r["emp-1"]["2026-09-14"]) {
+  const key = `${year}_${monthIndex}`;
+  if (BUNDLED_MONTHLY_ROSTERS[key]) {
+    const r = JSON.parse(JSON.stringify(BUNDLED_MONTHLY_ROSTERS[key]));
+    if (year === 2026 && monthIndex === 8 && r["emp-1"] && r["emp-1"]["2026-09-14"]) {
       r["emp-1"]["2026-09-14"] = {
         shift: 'D',
         previousShift: 'CT',
@@ -5139,8 +5141,8 @@ export function generateInitialRoster(year: number, monthIndex: number): RosterD
     }
     return r;
   }
-  // Untuk bulan Oktober 2026 dan bulan lainnya yang belum dijadwalkan di spreadsheet,
-  // roster default adalah KOSONG (belum diinput/dijadwalkan).
+
+  // Fallback: Untuk bulan yang belum memiliki data roster, inisialisasi entri kosong untuk semua karyawan
   const roster: RosterData = {};
   INITIAL_EMPLOYEES.forEach((emp) => {
     roster[emp.id] = {};

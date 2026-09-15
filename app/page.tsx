@@ -7,6 +7,7 @@ import {
   saveStoredEmployees,
   getStoredRoster,
   saveStoredRoster,
+  saveStoredRosterMultiMonth,
   getStoredLeaveRequests,
   saveStoredLeaveRequests,
   getStoredCurrentUser,
@@ -73,6 +74,30 @@ export default function HomePage() {
   const [isPatternModalOpen, setIsPatternModalOpen] = useState(false);
   const [individualModalEmployee, setIndividualModalEmployee] = useState<Employee | null>(null);
 
+  // Initial silent background sync from Google Sheets on mount to ensure all months (including October) are up-to-date
+  React.useEffect(() => {
+    fetch('/api/sync-spreadsheet')
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.employees && Array.isArray(data.employees) && data.employees.length > 0) {
+          setEmployees(data.employees);
+          saveStoredEmployees(data.employees);
+          if (data.roster) {
+            saveStoredRosterMultiMonth(data.roster);
+            const currentMonthRoster = getStoredRoster(year, monthIndex);
+            setRoster(currentMonthRoster);
+          }
+          if (data.syncedAt) {
+            setLastSynced(data.syncedAt);
+            saveStoredLastSynced(data.syncedAt);
+          }
+        }
+      })
+      .catch((err) => {
+        console.warn('Initial spreadsheet sync background check failed, continuing with stored/bundled data:', err);
+      });
+  }, [year, monthIndex]);
+
   // Handler: Change period
   const handlePeriodChange = (newYear: number, newMonthIndex: number) => {
     setYear(newYear);
@@ -91,15 +116,18 @@ export default function HomePage() {
         setEmployees(data.employees);
         saveStoredEmployees(data.employees);
         if (data.roster) {
-          setRoster(data.roster);
-          saveStoredRoster(year, monthIndex, data.roster);
+          saveStoredRosterMultiMonth(data.roster);
+          const currentMonthRoster = getStoredRoster(year, monthIndex);
+          setRoster(currentMonthRoster);
         }
         const now = new Date().toISOString();
         setLastSynced(now);
         saveStoredLastSynced(now);
+        triggerSyncToast('✓ Data Roster semua bulan (termasuk Oktober) berhasil disinkronkan dari Google Spreadsheet!', 'success');
       }
     } catch (err) {
       console.error('Failed to sync with Google Spreadsheet:', err);
+      triggerSyncToast('⚠ Gagal sinkronisasi data dari Google Spreadsheet', 'error');
     } finally {
       setIsSyncing(false);
     }

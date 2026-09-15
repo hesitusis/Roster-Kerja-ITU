@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { Employee, RosterData, ShiftCode } from '@/lib/types';
-import { INITIAL_EMPLOYEES, generateInitialRoster } from '@/lib/mock-data';
+import { INITIAL_EMPLOYEES } from '@/lib/mock-data';
+import { BUNDLED_MONTHLY_ROSTERS } from '@/lib/bundled-rosters';
 
 const SPREADSHEET_ROSTER_URL =
   'https://docs.google.com/spreadsheets/d/1wb2_93gm4DmLGcA4fZyWrK77zylG26iA4mp9xnt2Kx4/export?format=csv&gid=318146429';
@@ -199,13 +200,23 @@ export async function GET() {
     });
   } catch (error) {
     console.error('Failed to sync from Google Spreadsheet, falling back to bundled data:', error);
-    // Fallback to pre-bundled exact data
+    // Fallback to pre-bundled exact data across all available months
+    const unifiedRoster: RosterData = {};
+    INITIAL_EMPLOYEES.forEach((emp) => {
+      unifiedRoster[emp.id] = {};
+    });
+    for (const monthlyRoster of Object.values(BUNDLED_MONTHLY_ROSTERS)) {
+      for (const [empId, shifts] of Object.entries(monthlyRoster)) {
+        if (!unifiedRoster[empId]) unifiedRoster[empId] = {};
+        Object.assign(unifiedRoster[empId], shifts);
+      }
+    }
     return NextResponse.json({
       success: false,
       message: error instanceof Error ? error.message : 'Unknown error syncing spreadsheet',
       fallback: true,
       employees: INITIAL_EMPLOYEES,
-      roster: generateInitialRoster(2026, 8),
+      roster: unifiedRoster,
       syncedAt: new Date().toISOString(),
     });
   }
