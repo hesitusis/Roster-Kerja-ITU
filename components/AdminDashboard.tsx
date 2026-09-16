@@ -79,6 +79,7 @@ interface AdminDashboardProps {
   onOpenAddEmployee: () => void;
   onOpenPatternModal: () => void;
   onOpenIndividualModal: (employee: Employee) => void;
+  onOpenExcelUpload?: () => void;
   onSyncSpreadsheet?: () => void;
   isSyncing?: boolean;
   lastSynced?: string | null;
@@ -104,6 +105,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   onOpenAddEmployee,
   onOpenPatternModal,
   onOpenIndividualModal,
+  onOpenExcelUpload,
   onSyncSpreadsheet,
   isSyncing = false,
   lastSynced,
@@ -308,6 +310,74 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 Bulan Ini
               </button>
             </div>
+          </div>
+
+          {/* Action Toolbar */}
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Upload & Edit Excel Button */}
+            {onOpenExcelUpload && (
+              <button
+                type="button"
+                id="btn-upload-excel-roster"
+                onClick={onOpenExcelUpload}
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl shadow-xs transition-colors cursor-pointer"
+                title="Upload file Excel untuk tambah atau edit roster dengan pilihan nama karyawan"
+              >
+                <FileSpreadsheet className="w-4 h-4" />
+                <span>Upload & Edit Excel</span>
+              </button>
+            )}
+
+            {/* Export Excel Button */}
+            <button
+              type="button"
+              id="btn-export-excel-roster"
+              onClick={handleExportExcel}
+              className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-bold bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-xl shadow-2xs transition-colors cursor-pointer"
+              title="Unduh data roster dalam format Excel"
+            >
+              <Download className="w-3.5 h-3.5 text-slate-500" />
+              <span>Unduh Excel</span>
+            </button>
+
+            {/* Shift Pattern Button */}
+            <button
+              type="button"
+              id="btn-open-shift-pattern"
+              onClick={onOpenPatternModal}
+              className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-bold bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-xl transition-colors cursor-pointer"
+              title="Terapkan pola rotasi shift otomatis"
+            >
+              <Wand2 className="w-3.5 h-3.5 text-indigo-600" />
+              <span>Pola Shift</span>
+            </button>
+
+            {/* Add Employee Button */}
+            <button
+              type="button"
+              id="btn-add-employee-admin"
+              onClick={onOpenAddEmployee}
+              className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-bold bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-xl shadow-2xs transition-colors cursor-pointer"
+              title="Tambah personel baru ke database"
+            >
+              <Plus className="w-3.5 h-3.5 text-slate-500" />
+              <span>Tambah Personel</span>
+            </button>
+
+            {/* Sync Spreadsheet Button */}
+            {onSyncSpreadsheet && (
+              <button
+                type="button"
+                id="btn-sync-spreadsheet-admin"
+                onClick={onSyncSpreadsheet}
+                disabled={isSyncing}
+                className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-bold bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-xl shadow-2xs transition-colors cursor-pointer disabled:opacity-60"
+                title="Sinkronisasi dengan Google Spreadsheet"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 text-indigo-600 ${isSyncing ? 'animate-spin' : ''}`} />
+                <span>{isSyncing ? 'Sinkron...' : 'Sync Sheets'}</span>
+              </button>
+            )}
           </div>
         </div>
 
@@ -615,14 +685,26 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               </p>
             </div>
           </div>
-          <button
-            type="button"
-            onClick={onOpenPatternModal}
-            className="px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold whitespace-nowrap shadow-xs transition-colors cursor-pointer self-start sm:self-center shrink-0 flex items-center gap-1.5"
-          >
-            <Wand2 className="w-3.5 h-3.5" />
-            <span>Terapkan Pola Shift</span>
-          </button>
+          <div className="flex items-center gap-2 self-start sm:self-center shrink-0">
+            {onOpenExcelUpload && (
+              <button
+                type="button"
+                onClick={onOpenExcelUpload}
+                className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold whitespace-nowrap shadow-xs transition-colors cursor-pointer flex items-center gap-1.5"
+              >
+                <FileSpreadsheet className="w-3.5 h-3.5" />
+                <span>Upload Excel Roster</span>
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={onOpenPatternModal}
+              className="px-3.5 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold whitespace-nowrap shadow-xs transition-colors cursor-pointer flex items-center gap-1.5"
+            >
+              <Wand2 className="w-3.5 h-3.5" />
+              <span>Terapkan Pola Shift</span>
+            </button>
+          </div>
         </div>
       )}
 

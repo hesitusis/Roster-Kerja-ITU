@@ -34,6 +34,9 @@ import { StaffDashboard } from '@/components/StaffDashboard';
 import { IndividualMonitorModal } from '@/components/IndividualMonitorModal';
 import { AddEmployeeModal } from '@/components/AddEmployeeModal';
 import { ShiftPatternModal } from '@/components/ShiftPatternModal';
+import { ExcelRosterUploadModal } from '@/components/ExcelRosterUploadModal';
+import { ParsedEmployeeRosterItem } from '@/lib/excel-import';
+import { MONTH_NAMES_ID } from '@/lib/constants';
 import { isUserAdmin, canEditEmployeeRoster, getDefaultDeptForUser } from '@/lib/role-utils';
 import { CheckCircle2, AlertCircle, RefreshCw, X } from 'lucide-react';
 
@@ -72,6 +75,7 @@ export default function HomePage() {
   // Modals
   const [isAddEmployeeOpen, setIsAddEmployeeOpen] = useState(false);
   const [isPatternModalOpen, setIsPatternModalOpen] = useState(false);
+  const [isExcelUploadOpen, setIsExcelUploadOpen] = useState(false);
   const [individualModalEmployee, setIndividualModalEmployee] = useState<Employee | null>(null);
 
   // Initial silent background sync from Google Sheets on mount to ensure all months (including October) are up-to-date
@@ -387,6 +391,134 @@ export default function HomePage() {
     saveStoredRoster(year, monthIndex, updatedRoster);
   };
 
+  // Handler: Apply Roster Changes from Uploaded Excel
+  const handleApplyRosterChangesFromExcel = ({
+    selectedItems,
+    targetYear,
+    targetMonthIndex,
+    changeReason,
+    addNewEmployees,
+  }: {
+    selectedItems: ParsedEmployeeRosterItem[];
+    targetYear: number;
+    targetMonthIndex: number;
+    changeReason: string;
+    addNewEmployees: boolean;
+  }) => {
+    // 1. Handle New Employees if selected & requested
+    let updatedEmployees = [...employees];
+    const newEmployeesToAdd: Employee[] = [];
+
+    if (addNewEmployees) {
+      selectedItems.forEach((item) => {
+        if (item.isNewEmployee) {
+          const exists = updatedEmployees.some(
+            (e) => (e.nip && e.nip.toLowerCase() === item.employee.nip.toLowerCase()) || e.id === item.employee.id
+          );
+          if (!exists) {
+            newEmployeesToAdd.push(item.employee);
+            updatedEmployees.push(item.employee);
+          }
+        }
+      });
+
+      if (newEmployeesToAdd.length > 0) {
+        setEmployees(updatedEmployees);
+        saveStoredEmployees(updatedEmployees);
+      }
+    }
+
+    // 2. Load existing roster for the target month
+    const existingTargetRoster = getStoredRoster(targetYear, targetMonthIndex);
+    const updatedRoster: RosterData = { ...existingTargetRoster };
+
+    let totalUpdatedShifts = 0;
+    const shiftChangesAuditList: { name: string; nip: string; totalChanges: number }[] = [];
+
+    selectedItems.forEach((item) => {
+      const empId = item.employee.id;
+      if (!updatedRoster[empId]) {
+        updatedRoster[empId] = {};
+      }
+
+      let changesForThisEmp = 0;
+      Object.entries(item.shifts).forEach(([dateStr, shiftCode]) => {
+        const prevShift = updatedRoster[empId][dateStr]?.shift;
+        if (prevShift !== shiftCode) {
+          changesForThisEmp++;
+        }
+        updatedRoster[empId][dateStr] = {
+          shift: shiftCode,
+          updatedAt: new Date().toISOString(),
+          updatedBy: currentUser?.name || 'Administrator',
+          updatedByUsername: currentUser?.username || 'admin',
+          previousShift: prevShift,
+          reason: changeReason || 'Upload Excel Roster',
+          source: 'Excel File Import',
+        };
+        totalUpdatedShifts++;
+      });
+
+      if (changesForThisEmp > 0 || item.isNewEmployee) {
+        shiftChangesAuditList.push({
+          name: item.employee.name,
+          nip: item.employee.nip,
+          totalChanges: changesForThisEmp,
+        });
+      }
+    });
+
+    // 3. Save target roster
+    saveStoredRoster(targetYear, targetMonthIndex, updatedRoster);
+
+    // If currently viewing the target month, update active roster state
+    if (year === targetYear && monthIndex === targetMonthIndex) {
+      setRoster(updatedRoster);
+    } else {
+      // Switch view to the target month so user sees the newly imported data immediately
+      setYear(targetYear);
+      setMonthIndex(targetMonthIndex);
+      setRoster(updatedRoster);
+    }
+
+    // 4. Create Audit Log
+    const targetMonthName = MONTH_NAMES_ID[targetMonthIndex];
+    const newLogItem: AuditLogItem = {
+      id: `audit-excel-${Date.now()}`,
+      type: 'BATCH_CHANGE',
+      actorName: currentUser?.name || 'Administrator',
+      actorUsername: currentUser?.username || 'admin',
+      actorRole: 'admin',
+      actionTitle: `mengupload & memperbarui roster ${selectedItems.length} personel dari file Excel`,
+      targetDate: `${targetMonthName} ${targetYear}`,
+      newValue: `${totalUpdatedShifts} shift tersimpan`,
+      reason: changeReason || 'Upload & seleksi file Excel',
+      source: 'Upload Excel Roster',
+      timestamp: formatAuditDate(new Date()),
+      isoTimestamp: new Date().toISOString(),
+      details: {
+        personelCount: selectedItems.length,
+        newEmployeesAdded: newEmployeesToAdd.length,
+        personelList: selectedItems.map((i) => ({ name: i.employee.name, nip: i.employee.nip })),
+      },
+    };
+
+    const updatedLogs = addStoredAuditLog(newLogItem);
+    setAuditLogs(updatedLogs);
+
+    // 5. Close modal & show success toast
+    setIsExcelUploadOpen(false);
+    setSyncToast({
+      type: 'success',
+      message: `✓ Berhasil menerapkan roster untuk ${selectedItems.length} karyawan terpilih (${targetMonthName} ${targetYear})!`,
+    });
+
+    // Auto-dismiss toast after 6 seconds
+    setTimeout(() => {
+      setSyncToast(null);
+    }, 6000);
+  };
+
   // Handler: Update Employee Kimpers
   const handleUpdateEmployeeKimper = (employeeId: string, kimpers: string[]) => {
     const updated = employees.map((emp) =>
@@ -547,6 +679,7 @@ export default function HomePage() {
             onUpdateLeaveRequest={handleUpdateLeaveRequest}
             onOpenAddEmployee={() => setIsAddEmployeeOpen(true)}
             onOpenPatternModal={() => setIsPatternModalOpen(true)}
+            onOpenExcelUpload={() => setIsExcelUploadOpen(true)}
             onOpenIndividualModal={(emp) => setIndividualModalEmployee(emp)}
             onSyncSpreadsheet={handleSyncSpreadsheet}
             isSyncing={isSyncing}
@@ -647,6 +780,19 @@ export default function HomePage() {
           currentUser={currentUser}
           onApplyPattern={handleApplyPattern}
           onClose={() => setIsPatternModalOpen(false)}
+        />
+      )}
+
+      {/* 4. Excel Roster Upload & Multi-Employee Selector Modal */}
+      {isExcelUploadOpen && (
+        <ExcelRosterUploadModal
+          year={year}
+          monthIndex={monthIndex}
+          employees={employees}
+          currentRoster={roster}
+          currentUser={currentUser}
+          onApplyRosterChanges={handleApplyRosterChangesFromExcel}
+          onClose={() => setIsExcelUploadOpen(false)}
         />
       )}
     </div>
